@@ -7,7 +7,10 @@ import (
 	"strings"
 )
 
-const requiredOccurrences = 1
+const (
+	requiredOccurrences = 1
+	noElements          = 0
+)
 
 type xmlValue struct {
 	XMLName    xml.Name
@@ -22,6 +25,7 @@ type xmlConfig struct {
 	Repository []xmlValue `xml:"repository"`
 	TestMode   []xmlValue `xml:"test_mode"`
 	Filter     []xmlValue `xml:"filter"`
+	LoadOrder  []xmlValue `xml:"load_order"`
 	Unknown    []xmlValue `xml:",any"`
 	Attributes []xml.Attr `xml:",any,attr"`
 	Text       string     `xml:",chardata"`
@@ -89,6 +93,13 @@ func (document xmlConfig) values() (map[string]string, error) {
 			return nil, err
 		}
 		values[field.name] = value
+	}
+	if len(document.LoadOrder) != noElements {
+		value, err := fieldValue("load_order", document.LoadOrder)
+		if err != nil {
+			return nil, err
+		}
+		values["load_order"] = value
 	}
 	return values, nil
 }

@@ -13,7 +13,8 @@ usage() {
   build [флаги]       Собрать приложение в bin/kf2
   test [флаги]        Выполнить все тесты
   check [флаги]       Выполнить go vet
-  demo                Продемонстрировать графы, фильтрацию, циклы и ошибки параметров
+  demo                Продемонстрировать графы, порядок загрузки и ошибки
+  compare             Сравнить порядок с Cargo (нужны Cargo и rustc)
   help                Показать эту справку
 
 Примеры:
@@ -64,6 +65,9 @@ demo() {
     printf 'Тестовые графы: BFS, транзитивность, фильтрация и циклы:\n'
     go test -count=1 -v -run '^TestStage3Demo$' ./tests
 
+    printf '\nПорядок загрузки: зависимости перед пакетом, фильтры и ошибки циклов:\n'
+    go test -count=1 -v -run '^TestStage4Demo$' ./tests
+
     make_config 'bad/name' 'https://index.crates.io' 'false' ''
     expect_error package
     make_config 'serde' 'repository.txt' 'false' ''
@@ -72,6 +76,18 @@ demo() {
     expect_error test_mode
     make_config 'serde' 'https://index.crates.io' 'false' '&#10;'
     expect_error filter
+    make_config 'serde' 'https://index.crates.io' 'false' ''
+    sed 's|</config>|<load_order>yes</load_order></config>|' "$temp_dir/invalid.xml" > "$temp_dir/order.xml"
+    mv "$temp_dir/order.xml" "$temp_dir/invalid.xml"
+    expect_error load_order
+}
+
+compare() {
+    if ! command -v cargo >/dev/null 2>&1 || ! command -v rustc >/dev/null 2>&1; then
+        printf 'Ошибка: для сравнения нужны Cargo и rustc в PATH\n' >&2
+        exit 1
+    fi
+    KF2_CARGO_COMPARE=true go test -count=1 -v -run '^TestCargoComparison$' ./tests
 }
 
 command=${1:-run}
@@ -90,6 +106,10 @@ case "$command" in
     demo)
         require_no_arguments "$@"
         demo
+        ;;
+    compare)
+        require_no_arguments "$@"
+        compare
         ;;
     help|-h|--help)
         require_no_arguments "$@"

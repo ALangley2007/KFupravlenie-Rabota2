@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+    <package>A</package>
+    <repository>../tests/testdata/order.txt</repository>
+    <test_mode>true</test_mode>
+    <filter></filter>
+    <load_order>true</load_order>
+</config>

@@ -18,6 +18,8 @@ type Config struct {
 	TestMode bool
 	// Filter задаёт подстроку исключения пакетов.
 	Filter string
+	// LoadOrder включает вывод зависимостей перед зависящими от них пакетами.
+	LoadOrder bool
 }
 
 // Load читает конфигурацию; пути отсчитываются от каталога XML.
@@ -46,10 +48,16 @@ func fromValues(values map[string]string) (Config, error) {
 	if mode != "true" && mode != "false" {
 		return Config{}, fmt.Errorf("test_mode: ожидается true или false")
 	}
+	order, present := values["load_order"]
+	order = strings.TrimSpace(order)
+	if present && order != "true" && order != "false" {
+		return Config{}, fmt.Errorf("load_order: ожидается true или false")
+	}
 	return Config{
 		Package:    strings.TrimSpace(values["package"]),
 		Repository: strings.TrimSpace(values["repository"]),
 		TestMode:   mode == "true",
 		Filter:     values["filter"],
+		LoadOrder:  order == "true",
 	}, nil
 }

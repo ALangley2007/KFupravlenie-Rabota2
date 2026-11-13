@@ -40,7 +40,11 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "Ошибка:", err)
 		return exitFailure
 	}
-	err = writeGraph(stdout, dependencies)
+	if cfg.LoadOrder {
+		err = writeLoadOrder(stdout, dependencies)
+	} else {
+		err = writeGraph(stdout, dependencies)
+	}
 	if err != nil {
 		fmt.Fprintln(stderr, "Ошибка вывода:", err)
 		return exitFailure
