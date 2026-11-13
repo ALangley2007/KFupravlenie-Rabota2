@@ -13,12 +13,12 @@ usage() {
   build [флаги]       Собрать приложение в bin/kf2
   test [флаги]        Выполнить все тесты
   check [флаги]       Выполнить go vet
-  demo                Продемонстрировать оба режима и ошибки параметров
+  demo                Продемонстрировать прямые зависимости и ошибки параметров
   help                Показать эту справку
 
 Примеры:
   ./run.sh
-  ./run.sh run -config examples/test.xml
+  ./run.sh run -config config.xml
   ./run.sh run -h
   ./run.sh test -race -count=1
 EOF
@@ -45,7 +45,7 @@ expect_error() {
     "$temp_dir/kf2" -config "$temp_dir/invalid.xml" \
         > "$temp_dir/stdout" 2> "$temp_dir/stderr" || status=$?
     if [ "$status" -ne 1 ] || [ -s "$temp_dir/stdout" ]; then
-        printf 'Неожиданный код завершения или вывод параметров\n' >&2
+        printf 'Неожиданный код завершения или непустой stdout\n' >&2
         exit 1
     fi
     error_text=$(cat "$temp_dir/stderr")
@@ -61,10 +61,8 @@ demo() {
     trap 'exit 1' HUP INT TERM
     go build -o "$temp_dir/kf2" ./src
 
-    printf 'Обычный режим:\n'
-    "$temp_dir/kf2" -config config.xml
-    printf '\nТестовый режим:\n'
-    "$temp_dir/kf2" -config examples/test.xml
+    printf 'Сбор прямых зависимостей через локальный HTTP sparse-индекс:\n'
+    go test -count=1 -v -run '^TestStage2Demo$' ./tests
 
     make_config 'bad/name' 'https://index.crates.io' 'false' ''
     expect_error package

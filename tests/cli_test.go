@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"kf2/src/cargo"
 	"kf2/src/cli"
 )
 
@@ -14,12 +15,22 @@ const (
 	exitFailure = 1
 )
 
-// TestCLIOutput проверяет формат и полноту вывода параметров.
+// TestCLIOutput проверяет прямые зависимости и отсутствие вывода параметров этапа 1.
 func TestCLIOutput(t *testing.T) {
-	path := writeConfig(t, t.TempDir(), validXML)
+	deps := []cargo.Dependency{
+		{Name: "serde_core", Requirement: "^1.0", Kind: "normal"},
+		{Name: "derive", Package: "serde_derive", Requirement: "=1.0.0", Optional: true},
+		{Name: "cc", Requirement: "^1", Kind: "build", Target: "cfg(unix)"},
+		{Name: "test_crate", Requirement: "*", Kind: "dev", Registry: "https://example.org/index"},
+	}
+	path := remoteConfig(t, indexLine(t, map[string]any{"deps": deps}))
 	var stdout, stderr bytes.Buffer
 	status := cli.Run([]string{"-config", path}, &stdout, &stderr)
-	want := "package=serde\nrepository=https://index.crates.io\ntest_mode=false\nfilter=\n"
+	want := "Пакет: serde@1.0.0\nПрямые зависимости:\n" +
+		"- serde_core ^1.0 [kind=normal optional=false]\n" +
+		"- serde_derive =1.0.0 [kind=normal optional=true alias=derive]\n" +
+		"- cc ^1 [kind=build optional=false target=\"cfg(unix)\"]\n" +
+		"- test_crate * [kind=dev optional=false registry=\"https://example.org/index\"]\n"
 	if status != exitSuccess || stdout.String() != want || stderr.String() != "" {
 		t.Fatalf("status=%d stdout=%q stderr=%q", status, stdout.String(), stderr.String())
 	}
@@ -63,12 +74,43 @@ func (failingWriter) Write(data []byte) (int, error) {
 
 // TestCLIOutputFailure проверяет обработку сбоя записи в stdout.
 func TestCLIOutputFailure(t *testing.T) {
-	path := writeConfig(t, t.TempDir(), validXML)
+	path := remoteConfig(t, indexLine(t, nil))
 	var stderr bytes.Buffer
 	if status := cli.Run([]string{"-config", path}, failingWriter{}, &stderr); status != exitFailure {
 		t.Fatalf("ожидалась ошибка вывода; получено %d", status)
 	}
 	if !strings.Contains(stderr.String(), "Ошибка вывода:") {
 		t.Fatalf("неверная ошибка: %q", stderr.String())
+	}
+}
+
+// TestCLIEmptyDependencies проверяет явный вывод отсутствия зависимостей.
+func TestCLIEmptyDependencies(t *testing.T) {
+	path := remoteConfig(t, indexLine(t, nil))
+	var stdout, stderr bytes.Buffer
+	status := cli.Run([]string{"--config", path}, &stdout, &stderr)
+	if status != exitSuccess || stdout.String() != "Пакет: serde@1.0.0\nПрямые зависимости:\n(нет)\n" {
+		t.Fatalf("status=%d stdout=%q stderr=%q", status, stdout.String(), stderr.String())
+	}
+}
+
+// TestCLIFetchFailure проверяет отсутствие частичного вывода при ошибках получения данных.
+func TestCLIFetchFailure(t *testing.T) {
+	for _, body := range []string{"broken JSON", indexLine(t, nil) + "broken JSON"} {
+		path := remoteConfig(t, body)
+		var stdout, stderr bytes.Buffer
+		status := cli.Run([]string{"-config", path}, &stdout, &stderr)
+		if status != exitFailure || stdout.String() != "" || !strings.Contains(stderr.String(), "repository:") {
+			t.Fatalf("status=%d stdout=%q stderr=%q", status, stdout.String(), stderr.String())
+		}
+	}
+}
+
+// TestCLITestMode проверяет явное сообщение об этапе реализации тестового графа.
+func TestCLITestMode(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	status := cli.Run([]string{"-config", "../examples/test.xml"}, &stdout, &stderr)
+	if status != exitFailure || stdout.String() != "" || !strings.Contains(stderr.String(), "test_mode:") {
+		t.Fatalf("status=%d stdout=%q stderr=%q", status, stdout.String(), stderr.String())
 	}
 }

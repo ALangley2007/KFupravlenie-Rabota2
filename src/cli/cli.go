@@ -1,12 +1,14 @@
-// Package cli реализует интерфейс командной строки прототипа.
+// Package cli реализует интерфейс командной строки анализатора зависимостей Cargo.
 package cli
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 
+	"kf2/src/cargo"
 	"kf2/src/config"
 )
 
@@ -16,7 +18,7 @@ const (
 	noArguments = 0
 )
 
-// Run выводит параметры из XML и возвращает код завершения.
+// Run получает прямые зависимости пакета из XML-конфигурации и возвращает код завершения.
 func Run(args []string, stdout, stderr io.Writer) int {
 	path, err := configPath(args, stderr)
 	if errors.Is(err, flag.ErrHelp) {
@@ -31,13 +33,24 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "Ошибка:", err)
 		return exitFailure
 	}
-	_, err = fmt.Fprintf(stdout, "package=%s\nrepository=%s\ntest_mode=%t\nfilter=%s\n",
-		cfg.Package, cfg.Repository, cfg.TestMode, cfg.Filter)
+	release, err := fetchRelease(cfg)
+	if err != nil {
+		fmt.Fprintln(stderr, "Ошибка:", err)
+		return exitFailure
+	}
+	err = writeRelease(stdout, release)
 	if err != nil {
 		fmt.Fprintln(stderr, "Ошибка вывода:", err)
 		return exitFailure
 	}
 	return exitSuccess
+}
+
+func fetchRelease(cfg config.Config) (cargo.Release, error) {
+	if cfg.TestMode {
+		return cargo.Release{}, fmt.Errorf("test_mode: чтение тестового графа предусмотрено этапом 3")
+	}
+	return (cargo.Client{}).Fetch(context.Background(), cfg.Repository, cfg.Package)
 }
 
 func configPath(args []string, stderr io.Writer) (string, error) {
