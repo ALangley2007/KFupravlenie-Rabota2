@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"kf2/src/cargo"
 	"kf2/src/cli"
+	"kf2/src/config"
 )
 
 const (
@@ -15,22 +15,12 @@ const (
 	exitFailure = 1
 )
 
-// TestCLIOutput проверяет прямые зависимости и отсутствие вывода параметров этапа 1.
+// TestCLIOutput проверяет полный граф и порядок вывода BFS вместо вывода этапов 1 и 2.
 func TestCLIOutput(t *testing.T) {
-	deps := []cargo.Dependency{
-		{Name: "serde_core", Requirement: "^1.0", Kind: "normal"},
-		{Name: "derive", Package: "serde_derive", Requirement: "=1.0.0", Optional: true},
-		{Name: "cc", Requirement: "^1", Kind: "build", Target: "cfg(unix)"},
-		{Name: "test_crate", Requirement: "*", Kind: "dev", Registry: "https://example.org/index"},
-	}
-	path := remoteConfig(t, indexLine(t, map[string]any{"deps": deps}))
+	path := testConfig(t, "A: B C\nB: D\nC: D\nD: A\n", "A", "")
 	var stdout, stderr bytes.Buffer
 	status := cli.Run([]string{"-config", path}, &stdout, &stderr)
-	want := "Пакет: serde@1.0.0\nПрямые зависимости:\n" +
-		"- serde_core ^1.0 [kind=normal optional=false]\n" +
-		"- serde_derive =1.0.0 [kind=normal optional=true alias=derive]\n" +
-		"- cc ^1 [kind=build optional=false target=\"cfg(unix)\"]\n" +
-		"- test_crate * [kind=dev optional=false registry=\"https://example.org/index\"]\n"
+	want := "Пакет: A\nГраф зависимостей (BFS):\nA -> B, C\nB -> D\nC -> D\nD -> A\n"
 	if status != exitSuccess || stdout.String() != want || stderr.String() != "" {
 		t.Fatalf("status=%d stdout=%q stderr=%q", status, stdout.String(), stderr.String())
 	}
@@ -87,9 +77,15 @@ func TestCLIOutputFailure(t *testing.T) {
 // TestCLIEmptyDependencies проверяет явный вывод отсутствия зависимостей.
 func TestCLIEmptyDependencies(t *testing.T) {
 	path := remoteConfig(t, indexLine(t, nil))
+	cfg, err := config.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var stdout, stderr bytes.Buffer
 	status := cli.Run([]string{"--config", path}, &stdout, &stderr)
-	if status != exitSuccess || stdout.String() != "Пакет: serde@1.0.0\nПрямые зависимости:\n(нет)\n" {
+	name := "serde [" + cfg.Repository + "]"
+	want := "Пакет: " + name + "\nГраф зависимостей (BFS):\n" + name + "@1.0.0 -> (нет)\n"
+	if status != exitSuccess || stdout.String() != want || stderr.Len() != noOutput {
 		t.Fatalf("status=%d stdout=%q stderr=%q", status, stdout.String(), stderr.String())
 	}
 }
@@ -106,11 +102,12 @@ func TestCLIFetchFailure(t *testing.T) {
 	}
 }
 
-// TestCLITestMode проверяет явное сообщение об этапе реализации тестового графа.
+// TestCLITestMode проверяет пример с путём относительно XML и исключением B.
 func TestCLITestMode(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	status := cli.Run([]string{"-config", "../examples/test.xml"}, &stdout, &stderr)
-	if status != exitFailure || stdout.String() != "" || !strings.Contains(stderr.String(), "test_mode:") {
+	want := "Пакет: A\nГраф зависимостей (BFS):\nA -> C\nC -> (нет)\n"
+	if status != exitSuccess || stdout.String() != want || stderr.String() != "" {
 		t.Fatalf("status=%d stdout=%q stderr=%q", status, stdout.String(), stderr.String())
 	}
 }

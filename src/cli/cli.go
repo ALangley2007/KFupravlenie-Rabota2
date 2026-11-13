@@ -7,9 +7,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"path/filepath"
 
-	"kf2/src/cargo"
 	"kf2/src/config"
+	"kf2/src/graph"
+	"kf2/src/repository"
 )
 
 const (
@@ -18,7 +20,7 @@ const (
 	noArguments = 0
 )
 
-// Run получает прямые зависимости пакета из XML-конфигурации и возвращает код завершения.
+// Run строит граф зависимостей по XML-конфигурации и возвращает код завершения.
 func Run(args []string, stdout, stderr io.Writer) int {
 	path, err := configPath(args, stderr)
 	if errors.Is(err, flag.ErrHelp) {
@@ -33,12 +35,12 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "Ошибка:", err)
 		return exitFailure
 	}
-	release, err := fetchRelease(cfg)
+	dependencies, err := buildGraph(cfg, path)
 	if err != nil {
 		fmt.Fprintln(stderr, "Ошибка:", err)
 		return exitFailure
 	}
-	err = writeRelease(stdout, release)
+	err = writeGraph(stdout, dependencies)
 	if err != nil {
 		fmt.Fprintln(stderr, "Ошибка вывода:", err)
 		return exitFailure
@@ -46,11 +48,22 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	return exitSuccess
 }
 
-func fetchRelease(cfg config.Config) (cargo.Release, error) {
+func buildGraph(cfg config.Config, configPath string) (graph.Graph, error) {
+	var source graph.Source = repository.Cargo{}
+	root := repository.CargoRef(cfg.Repository, cfg.Package)
 	if cfg.TestMode {
-		return cargo.Release{}, fmt.Errorf("test_mode: чтение тестового графа предусмотрено этапом 3")
+		path := cfg.Repository
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(filepath.Dir(configPath), path)
+		}
+		test, err := repository.LoadTest(path)
+		if err != nil {
+			return graph.Graph{}, err
+		}
+		source = test
+		root = graph.Ref{Name: cfg.Package}
 	}
-	return (cargo.Client{}).Fetch(context.Background(), cfg.Repository, cfg.Package)
+	return graph.Build(context.Background(), source, root, cfg.Filter)
 }
 
 func configPath(args []string, stderr io.Writer) (string, error) {

@@ -13,7 +13,7 @@ usage() {
   build [флаги]       Собрать приложение в bin/kf2
   test [флаги]        Выполнить все тесты
   check [флаги]       Выполнить go vet
-  demo                Продемонстрировать прямые зависимости и ошибки параметров
+  demo                Продемонстрировать графы, фильтрацию, циклы и ошибки параметров
   help                Показать эту справку
 
 Примеры:
@@ -61,8 +61,8 @@ demo() {
     trap 'exit 1' HUP INT TERM
     go build -o "$temp_dir/kf2" ./src
 
-    printf 'Сбор прямых зависимостей через локальный HTTP sparse-индекс:\n'
-    go test -count=1 -v -run '^TestStage2Demo$' ./tests
+    printf 'Тестовые графы: BFS, транзитивность, фильтрация и циклы:\n'
+    go test -count=1 -v -run '^TestStage3Demo$' ./tests
 
     make_config 'bad/name' 'https://index.crates.io' 'false' ''
     expect_error package
