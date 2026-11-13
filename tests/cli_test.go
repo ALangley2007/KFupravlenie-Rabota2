@@ -15,12 +15,14 @@ const (
 	exitFailure = 1
 )
 
-// TestCLIOutput проверяет полный граф и порядок вывода BFS вместо вывода этапов 1 и 2.
+// TestCLIOutput проверяет полный DOT с общими зависимостями и циклом без постороннего текста.
 func TestCLIOutput(t *testing.T) {
 	path := testConfig(t, "A: B C\nB: D\nC: D\nD: A\n", "A", "")
 	var stdout, stderr bytes.Buffer
 	status := cli.Run([]string{"-config", path}, &stdout, &stderr)
-	want := "Пакет: A\nГраф зависимостей (BFS):\nA -> B, C\nB -> D\nC -> D\nD -> A\n"
+	want := "digraph dependencies {\n  rankdir=LR;\n  node [shape=box];\n" +
+		"  n0 [label=\"A\"];\n  n1 [label=\"B\"];\n  n2 [label=\"C\"];\n  n3 [label=\"D\"];\n" +
+		"  n0 -> n1;\n  n0 -> n2;\n  n1 -> n3;\n  n2 -> n3;\n  n3 -> n0;\n}\n"
 	if status != exitSuccess || stdout.String() != want || stderr.String() != "" {
 		t.Fatalf("status=%d stdout=%q stderr=%q", status, stdout.String(), stderr.String())
 	}
@@ -74,7 +76,7 @@ func TestCLIOutputFailure(t *testing.T) {
 	}
 }
 
-// TestCLIEmptyDependencies проверяет явный вывод отсутствия зависимостей.
+// TestCLIEmptyDependencies проверяет явное объявление одиночной вершины с версией и реестром.
 func TestCLIEmptyDependencies(t *testing.T) {
 	path := remoteConfig(t, indexLine(t, nil))
 	cfg, err := config.Load(path)
@@ -83,8 +85,8 @@ func TestCLIEmptyDependencies(t *testing.T) {
 	}
 	var stdout, stderr bytes.Buffer
 	status := cli.Run([]string{"--config", path}, &stdout, &stderr)
-	name := "serde [" + cfg.Repository + "]"
-	want := "Пакет: " + name + "\nГраф зависимостей (BFS):\n" + name + "@1.0.0 -> (нет)\n"
+	want := "digraph dependencies {\n  rankdir=LR;\n  node [shape=box];\n" +
+		"  n0 [label=\"serde@1.0.0\\n" + cfg.Repository + "\"];\n}\n"
 	if status != exitSuccess || stdout.String() != want || stderr.Len() != noOutput {
 		t.Fatalf("status=%d stdout=%q stderr=%q", status, stdout.String(), stderr.String())
 	}
@@ -106,7 +108,8 @@ func TestCLIFetchFailure(t *testing.T) {
 func TestCLITestMode(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	status := cli.Run([]string{"-config", "../examples/test.xml"}, &stdout, &stderr)
-	want := "Пакет: A\nГраф зависимостей (BFS):\nA -> C\nC -> (нет)\n"
+	want := "digraph dependencies {\n  rankdir=LR;\n  node [shape=box];\n" +
+		"  n0 [label=\"A\"];\n  n1 [label=\"C\"];\n  n0 -> n1;\n}\n"
 	if status != exitSuccess || stdout.String() != want || stderr.String() != "" {
 		t.Fatalf("status=%d stdout=%q stderr=%q", status, stdout.String(), stderr.String())
 	}

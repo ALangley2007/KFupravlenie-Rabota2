@@ -13,8 +13,10 @@ usage() {
   build [флаги]       Собрать приложение в bin/kf2
   test [флаги]        Выполнить все тесты
   check [флаги]       Выполнить go vet
-  demo                Продемонстрировать графы, порядок загрузки и ошибки
+  demo                Продемонстрировать DOT, порядок загрузки и ошибки
   compare             Сравнить порядок с Cargo (нужны Cargo и rustc)
+  compare-visual      Сравнить три графа с cargo tree (нужны Cargo, rustc и сеть)
+  render              Получить SVG трёх примеров в build/stage5 (нужен Graphviz)
   help                Показать эту справку
 
 Примеры:
@@ -68,6 +70,9 @@ demo() {
     printf '\nПорядок загрузки: зависимости перед пакетом, фильтры и ошибки циклов:\n'
     go test -count=1 -v -run '^TestStage4Demo$' ./tests
 
+    printf '\nGraphviz DOT для трёх настоящих Cargo-пакетов (снимок индекса, без сети):\n'
+    go test -count=1 -v -run '^TestStage5Demo$' ./tests
+
     make_config 'bad/name' 'https://index.crates.io' 'false' ''
     expect_error package
     make_config 'serde' 'repository.txt' 'false' ''
@@ -82,12 +87,34 @@ demo() {
     expect_error load_order
 }
 
-compare() {
+require_cargo() {
     if ! command -v cargo >/dev/null 2>&1 || ! command -v rustc >/dev/null 2>&1; then
         printf 'Ошибка: для сравнения нужны Cargo и rustc в PATH\n' >&2
         exit 1
     fi
+}
+
+compare() {
+    require_cargo
     KF2_CARGO_COMPARE=true go test -count=1 -v -run '^TestCargoComparison$' ./tests
+}
+
+compare_visual() {
+    require_cargo
+    cargo --version
+    KF2_CARGO_TREE_COMPARE=true go test -count=1 -v -run '^TestCargoTreeComparison$' ./tests
+}
+
+render() {
+    if ! command -v dot >/dev/null 2>&1; then
+        printf 'Ошибка: для SVG нужен Graphviz (dot в PATH)\n' >&2
+        exit 1
+    fi
+    mkdir -p build/stage5
+    for name in windows-link windows-sys windows-targets; do
+        dot -Tsvg "tests/testdata/stage5/graphs/$name.dot" -o "build/stage5/$name.svg"
+        printf 'build/stage5/%s.svg\n' "$name"
+    done
 }
 
 command=${1:-run}
@@ -110,6 +137,14 @@ case "$command" in
     compare)
         require_no_arguments "$@"
         compare
+        ;;
+    compare-visual)
+        require_no_arguments "$@"
+        compare_visual
+        ;;
+    render)
+        require_no_arguments "$@"
+        render
         ;;
     help|-h|--help)
         require_no_arguments "$@"

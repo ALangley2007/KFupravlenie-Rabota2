@@ -1,0 +1,7 @@
+digraph dependencies {
+  rankdir=LR;
+  node [shape=box];
+  n0 [label="windows-sys@0.61.2\nhttps://index.crates.io"];
+  n1 [label="windows-link@0.100.0\nhttps://index.crates.io"];
+  n0 -> n1;
+}

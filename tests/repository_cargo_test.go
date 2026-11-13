@@ -104,7 +104,7 @@ func TestCLICargoGraph(t *testing.T) {
 		t.Fatalf("status=%d stderr=%s", status, stderr.String())
 	}
 	for _, name := range []string{"root", "shared", "build", "leaf"} {
-		if !strings.Contains(stdout.String(), name+" ["+server.URL+"]@1.0.0 -> ") {
+		if !strings.Contains(stdout.String(), `label="`+name+`@1.0.0\n`+server.URL+`"`) {
 			t.Fatalf("пакет %s отсутствует: %s", name, stdout.String())
 		}
 	}

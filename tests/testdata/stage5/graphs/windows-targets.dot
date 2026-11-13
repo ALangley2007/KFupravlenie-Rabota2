@@ -1,0 +1,23 @@
+digraph dependencies {
+  rankdir=LR;
+  node [shape=box];
+  n0 [label="windows-targets@0.53.5\nhttps://index.crates.io"];
+  n1 [label="windows-link@0.100.0\nhttps://index.crates.io"];
+  n2 [label="windows_aarch64_gnullvm@0.53.1\nhttps://index.crates.io"];
+  n3 [label="windows_aarch64_msvc@0.53.1\nhttps://index.crates.io"];
+  n4 [label="windows_i686_gnu@0.53.1\nhttps://index.crates.io"];
+  n5 [label="windows_i686_gnullvm@0.53.1\nhttps://index.crates.io"];
+  n6 [label="windows_i686_msvc@0.53.1\nhttps://index.crates.io"];
+  n7 [label="windows_x86_64_gnu@0.53.1\nhttps://index.crates.io"];
+  n8 [label="windows_x86_64_gnullvm@0.53.1\nhttps://index.crates.io"];
+  n9 [label="windows_x86_64_msvc@0.53.1\nhttps://index.crates.io"];
+  n0 -> n1;
+  n0 -> n2;
+  n0 -> n3;
+  n0 -> n4;
+  n0 -> n5;
+  n0 -> n6;
+  n0 -> n7;
+  n0 -> n8;
+  n0 -> n9;
+}

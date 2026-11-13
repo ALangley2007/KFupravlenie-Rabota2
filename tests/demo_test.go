@@ -19,7 +19,7 @@ func TestStage3Demo(t *testing.T) {
 				t.Fatalf("status=%d stderr=%s", status, stderr.String())
 			}
 			t.Logf("filter=%q\n%s", test.filter, stdout.String())
-			if !strings.Contains(stdout.String(), "Граф зависимостей (BFS):") {
+			if !strings.HasPrefix(stdout.String(), "digraph dependencies {\n") {
 				t.Fatal("граф не выведен")
 			}
 		})
